@@ -1,3 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    body {
+      /* font-family: 'Nunito', sans-serif; */
+    }
+    h1 {
+      @apply text-3xl font-bold mb-4;
+    }
+    h2 {
+      @apply text-xl font-bold ml-4 mb-3;
+    }
+    input, select {
+      @apply px-2 py-1 h-8 bg-slate-200 truncate rounded-md flex flex-grow items-center justify-start;
+    }
+}
