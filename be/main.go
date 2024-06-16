@@ -39,6 +39,7 @@ type CustomerDTO struct {
 	ID        uint   `json:"id"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
+	Nation    Nation `json:"nation"`
 }
 
 // Nationality model
@@ -112,7 +113,7 @@ func main() {
 // CRUD operations for customers
 func getCustomers(c *gin.Context) {
 	var customers []CustomerDTO
-	db.Model(&Customer{}).Find(&customers)
+	db.Model(&Customer{}).Preload("Nation").Find(&customers)
 	c.JSON(http.StatusOK, customers)
 }
 

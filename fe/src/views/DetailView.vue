@@ -19,39 +19,6 @@
       :class="{ 'w-60': field.type === 'select' }"
       @blur="changeHandler"
     />
-    <!-- <BaseInput :value="data?.fields." label="First Name" @blur="changeHandler" /> -->
-    <!-- <label class="flex items-center">
-      <span class="w-28"> First Name </span>
-      <input
-        :value="data?.firstName"
-        @blur="(e) => changeHandler(e, 'firstName')"
-      />
-    </label>
-    <label class="flex items-center">
-      <span class="w-28"> Last Name </span>
-      <input
-        :value="data?.lastName"
-        @blur="(e) => changeHandler(e, 'lastName')"
-      />
-    </label>
-    <label class="flex items-center">
-      <span class="w-28"> Note </span>
-      <input
-        :value="data?.note"
-        placeholder="Tell me something"
-        @blur="(e) => changeHandler(e, 'note')"
-      />
-    </label>
-    <label class="flex items-center">
-      <span class="w-28"> Nation </span>
-
-      <n-select
-        :value="data?.nationId ?? ''"
-        :options="nations"
-        class="w-60"
-        @update:value="selectHandler"
-      />
-    </label> -->
   </section>
 </template>
 
@@ -79,28 +46,17 @@ const props = defineProps<{
   id: string
 }>()
 
-const queryKey = computed(() => ['customer', props.id])
+// const queryKey = computed(() => ['customer', props.id])
 const {
   isLoading,
   isPending,
-  data: customers,
+  data,
   isError,
   error,
 } = useGetCustomer(
   toRef(props, 'id')
   // enabled: computed(() => !!props.id)
 )
-
-const data = computed(() => {
-  const fields =
-    customers.value?.fields.map((field) => {
-      // if (field.name === 'nationId') {
-      //   return { ...field, options: () => useQuery(nationOptions(true)) }
-      // }
-      return field
-    }) ?? []
-  return { ...customers.value, fields }
-})
 
 const { isLoading: isLoadingNations, data: nations } = useGetNations({
   isSelectable: true,
@@ -112,7 +68,7 @@ function changeHandler(field: Field) {
   if (!entities) return
   const oldEntity = entities.find((e) => String(e.id) === props.id)
   const fields =
-    data?.value.fields?.map((f) => {
+    data?.value?.fields?.map((f) => {
       if (f.name === field.name) return field
       return f
     }) ?? []
@@ -121,28 +77,11 @@ function changeHandler(field: Field) {
   const entity = { ...oldEntity, firstName, lastName }
   dirtyStore.setDirtyState(true)
 
-  // if (oldValue !== field.value) {
-  // }
-
-  // if (name in entities) {
   const newE = entities.map((e) => {
     if (String(e.id) === props.id) return entity
     return e
   }) as Entity[]
-  const newEntities = [...entities, entity] as Entity[]
-  console.log('newEntities:', newEntities)
-  console.log('newEntities:', newE)
   queryClient.setQueryData(customersOptions().queryKey, newE)
-  // }
-  // const newFields = entity?.fields.map((field) => {
-  //   if (
-  //     isSingleSelectableField(changedField) &&
-  //     !field.name.endsWith('Id') &&
-  //     changedField.name.startsWith(field.name)
-  //   ) {
-  //     return { ...field, value: changedField.value.name }
-  //   }
-  //   return field.name === changedField.name ? changedField : field
-  // })
+
 }
 </script>

@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, type UseQueryReturnType } from '@tanstack/vue-query'
+import { queryOptions, useMutation, useQuery, type UseQueryReturnType } from '@tanstack/vue-query'
 import axios from 'axios'
 import { toRef, type Ref,} from 'vue'
 export type Entity = {
@@ -40,6 +40,14 @@ const getCustomer = async (id: string): Promise<Entity> => {
 export function useGetCustomer(id: Ref<string>) {
     return useQuery(customerOptions(id))
 } 
+
+const { isPending, isError, error, isSuccess, mutate } = useMutation<Entity>({
+    mutationFn: (newCustomer) => axios.post('/api/customers', newCustomer),
+  })
+
+export function usePostCustomer(newCustomer: Entity) {
+    return mutate(newCustomer)
+}
 
 export function customerOptions(id: Ref<string>) {
     return queryOptions({

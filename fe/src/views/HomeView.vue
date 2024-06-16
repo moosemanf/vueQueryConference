@@ -5,12 +5,12 @@
   <h1>Welcome to modern state management (in UI)</h1>
     <h2>There are three kinds of state</h2>
     <ul class="list-disc ml-8">
-      <li><strong>Local client</strong> state:</li>
+      <li><strong>Local <span class="underline decoration-sky-500 decoration-2">client</span></strong> state:</li>
       <ul class="list-disc ml-8">
         <li>values that are scoped directly to a single component or its descendants</li>
         <li>right where you need it</li>
       </ul>
-      <li><strong>Global client</strong> state:</li>
+      <li><strong>Global <span class="underline decoration-sky-500 decoration-2">client</span></strong> state:</li>
       <ul class="list-disc ml-8">
         <li>for example: darkmode, user (-settings),... </li>
         <li>think Vuex, Pinia, Redux</li>
