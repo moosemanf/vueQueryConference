@@ -24,12 +24,22 @@ export type Selectable = {
     value: number
 }
 
+
+
+export function customersOptions(enabled: Ref<boolean>) {
+    return queryOptions({
+        queryKey: ['customers'],
+        queryFn: () => getCustomers(),
+        staleTime: 15 * 1000,
+        enabled,
+    })
+}
+
 export const getCustomers = async (): Promise<Entity[]> =>
     (await axios.get('/api/customers')).data
 
-export function useGetAllCustomers() {
-    return useQuery(customersOptions())
-
+export function useGetAllCustomers(enabled: Ref<boolean>) {
+    return useQuery(customersOptions(enabled)) 
 }   
 
 const getCustomer = async (id: string): Promise<Entity> => {
@@ -37,30 +47,29 @@ const getCustomer = async (id: string): Promise<Entity> => {
     return data
 }
 
-export function useGetCustomer(id: Ref<string>) {
-    return useQuery(customerOptions(id))
+export function useGetCustomer(id: Ref<string>, enabled: Ref<boolean>) {
+    return useQuery(customerOptions(id, enabled))
 } 
 
-const { isPending, isError, error, isSuccess, mutate } = useMutation<Entity>({
-    mutationFn: (newCustomer) => axios.post('/api/customers', newCustomer),
-  })
+// const { isPending, isError, error, isSuccess, mutate } = useMutation<Entity>({
+//     mutationFn: (newCustomer) => axios.post('/api/customers', newCustomer),
+//   })
 
-export function usePostCustomer(newCustomer: Entity) {
-    return mutate(newCustomer)
-}
+// export function usePostCustomer(newCustomer: Entity) {
+//     return mutate(newCustomer)
+// }
 
-export function customerOptions(id: Ref<string>) {
+export function customerOptions(id: Ref<string>, enabled: Ref<boolean>) {
     return queryOptions({
         queryKey: ['customers', id],
         queryFn: () => getCustomer(id.value),
+        enabled,
         staleTime: 5 * 1000,
     })
 }
 
-export function customersOptions() {
-    return queryOptions({
-        queryKey: ['customers'],
-        queryFn: () => getCustomers(),
-        staleTime: 15 * 1000,
-    })
+export async function deleteCustomerQuery(id: number) {
+   await axios.delete(`/api/customers/${id}`)
+
 }
+

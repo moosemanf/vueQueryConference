@@ -39,7 +39,6 @@ type CustomerDTO struct {
 	ID        uint   `json:"id"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
-	Nation    Nation `json:"nation"`
 }
 
 // Nationality model
@@ -113,7 +112,7 @@ func main() {
 // CRUD operations for customers
 func getCustomers(c *gin.Context) {
 	var customers []CustomerDTO
-	db.Model(&Customer{}).Preload("Nation").Find(&customers)
+	db.Model(&Customer{}).Preload("Nations").Find(&customers)
 	c.JSON(http.StatusOK, customers)
 }
 
@@ -134,7 +133,7 @@ func getCustomer(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Customer not found"})
 		return
 	}
-	customerDTO := customer.ToDTO()
+	customerDTO := customer.toDTO()
 	time.Sleep(time.Second * 1)
 	c.JSON(http.StatusOK, customerDTO)
 }
@@ -157,7 +156,11 @@ func updateCustomer(c *gin.Context) {
 func deleteCustomer(c *gin.Context) {
 	id := c.Param("id")
 	var customer Customer
-	db.First(&customer, id)
+	fmt.Println("id delete", id)
+	if id == "7" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Some purposeful error..."})
+		return
+	}
 	db.Delete(&customer)
 	c.JSON(http.StatusOK, gin.H{"message": "Customer deleted successfully"})
 }
@@ -218,15 +221,15 @@ func sseHandler(c *gin.Context) {
 	// Server-Sent Events logic to notify frontend of changes in the "Nation" table
 }
 
-// ToDTO converts Customer into the desired DTO format
-func (c *Customer) ToDTO() map[string]interface{} {
+// toDTO converts Customer into the desired DTO format
+func (c *Customer) toDTO() map[string]interface{} {
 	// Construct the name from first name and last name
 	name := fmt.Sprintf("%s %s", c.FirstName, c.LastName)
 
 	// Construct the fields array with desired properties
 	fields := []map[string]interface{}{
 		{"name": "nationId", "type": "select", "query": "nations", "value": c.NationID},
-		{"name": "note", "type": "text", "value": c.Note},
+		// {"name": "note", "type": "text", "value": c.Note},
 		{"name": "firstName", "type": "text", "value": c.FirstName},
 		{"name": "lastName", "type": "text", "value": c.LastName},
 		// Add more fields as needed

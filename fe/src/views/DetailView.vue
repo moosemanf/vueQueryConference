@@ -1,8 +1,6 @@
 <template>
-  <!-- <BaseInput v-model="data?.firstName" label="First name" />
-    <BaseInput v-model="data?.lastName" label="Last name" /> -->
   <section class="flex flex-col gap-y-4">
-    <div v-if="isLoading">chill man...</div>
+    <div v-if="isLoading">chill guys...</div>
     <div v-if="isError">Houston, we have a problem: {{ error?.message }}</div>
     <label class="w-28">
       ID:
@@ -23,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, toRef } from 'vue'
+import { computed, h, toRef, type Ref } from 'vue'
 import { NInput, NSelect, useMessage, type DataTableColumns } from 'naive-ui'
 import { useRoute } from 'vue-router'
 import {
@@ -32,9 +30,10 @@ import {
   type Field,
   type Selectable,
   customersOptions,
+  deleteCustomerQuery,
 } from '@/api/customers'
 import { useGetNations, nationOptions } from '@/api/nations'
-import { useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import BaseInput from '@/components/BaseInput.vue'
 import { useDirtyStore } from '@/stores/dirty'
 
@@ -47,15 +46,9 @@ const props = defineProps<{
 }>()
 
 // const queryKey = computed(() => ['customer', props.id])
-const {
-  isLoading,
-  isPending,
-  data,
-  isError,
-  error,
-} = useGetCustomer(
-  toRef(props, 'id')
-  // enabled: computed(() => !!props.id)
+const { isLoading, data, isError, error } = useGetCustomer(
+  toRef(props, 'id'),
+  computed(() => !dirtyStore.isDirty)
 )
 
 const { isLoading: isLoadingNations, data: nations } = useGetNations({
@@ -63,25 +56,41 @@ const { isLoading: isLoadingNations, data: nations } = useGetNations({
 })
 
 function changeHandler(field: Field) {
-  const entities = queryClient.getQueryData(customersOptions().queryKey)
+  handleChangeAndOptimisticallyUpdateFE(field)
+}
 
-  if (!entities) return
-  const oldEntity = entities.find((e) => String(e.id) === props.id)
-  const fields =
-    data?.value?.fields?.map((f) => {
-      if (f.name === field.name) return field
-      return f
-    }) ?? []
-  const firstName = fields.find((f) => f.name === 'firstName')?.value
-  const lastName = fields.find((f) => f.name === 'lastName')?.value
-  const entity = { ...oldEntity, firstName, lastName }
+function handleChangeAndOptimisticallyUpdateFE(field: Field) {
+  const { queryKey } = customersOptions()
+  // get Masterlist
+  const entities = queryClient.getQueryData(queryKey)
+  const oldEntity = entities?.find((e) => String(e.id) === props.id)
+
+  if (!entities || !oldEntity) return
+
+  // prepare for optimistic update
+  const fields = updateFieldList(data, field)
+  const firstName = findFieldValue(fields, 'firstName')
+  const lastName = findFieldValue(fields, 'lastName')
+
+  const newEntity = { ...oldEntity, firstName, lastName }
+  // const newEntity = { ...oldEntity, fields }
   dirtyStore.setDirtyState(true)
 
-  const newE = entities.map((e) => {
-    if (String(e.id) === props.id) return entity
-    return e
+  const newEntities = entities.map((old) => {
+    return String(old.id) === props.id ? newEntity : old
   }) as Entity[]
-  queryClient.setQueryData(customersOptions().queryKey, newE)
+  queryClient.setQueryData(queryKey, newEntities)
+}
 
+function updateFieldList(data: Ref<Entity> | Ref<undefined>, field: Field) {
+  return (
+    data?.value?.fields?.map((oldField) => {
+      return oldField.name === field.name ? field : oldField
+    }) ?? []
+  )
+}
+
+function findFieldValue(fields: Field[], name: string) {
+  return fields.find((f) => f.name === name)?.value ?? ''
 }
 </script>

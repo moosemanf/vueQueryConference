@@ -3,10 +3,16 @@
   <div class="space-x-4 mb-8">
     <n-button type="primary"> New </n-button>
     <n-button :disabled="!store.isDirty"> Save </n-button>
-    <n-button type="error" :disabled="!id"> Delete </n-button>
+    <!-- <n-button type="error" :disabled="!id"> Delete </n-button> -->
+    <n-button type="error" ghost :disabled="!id" @click="onReset">
+      Reset
+    </n-button>
   </div>
 
-  <div class="flex gap-x-12">
+  <div v-if="isPending">master is loading...</div>
+  <div v-if="isError">showing my errors: {{ error }}</div>
+
+  <div v-else class="flex gap-x-12">
     <n-data-table
       class="w-[400px]"
       :columns="columns"
@@ -29,15 +35,22 @@ import {
 } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { useDirtyStore } from '@/stores/dirty'
-import { useQuery } from '@tanstack/vue-query'
-import { getCustomers, type Entity, useGetAllCustomers } from '@/api/customers'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import {
+  getCustomers,
+  type Entity,
+  useGetAllCustomers,
+  deleteCustomerQuery,
+} from '@/api/customers'
 
-const route = useRoute()
-const router = useRouter()
 const props = defineProps<{
   id?: string
 }>()
 
+const router = useRouter()
+const route = useRoute()
+const store = useDirtyStore()
+const queryClient = useQueryClient()
 // type Entity = { id: string }
 
 const createColumns = () => {
@@ -64,7 +77,7 @@ const createColumns = () => {
             strong: true,
             tertiary: true,
             size: 'small',
-            onClick: () => deleteEntity(row.id),
+            onClick: () => onDelete(row.id),
           },
           { default: () => 'Delete' }
         )
@@ -73,8 +86,9 @@ const createColumns = () => {
   ]
 }
 
-const { isPending, isError, isFetching, data, error, refetch } =
-  useGetAllCustomers()
+const { isError, data, error, isPending } = useGetAllCustomers(
+  computed(() => !store.isDirty)
+)
 
 // const data: Song[] = [
 //   { id: 3, title: 'Wonderwall', length: '4:18' },
@@ -109,14 +123,71 @@ function clickedHandler(id: number) {
   router.push({ name: 'Detail', params: { id } })
 }
 
-function deleteEntity(id: number) {
-  message.error(`Soon to be deleted: ${id}`)
+function onDelete(id: number) {
+  console.log('onDelete', id)
+  mutate(id)
+  // handleOptimisticDelete(id)
+}
+const { mutate } = useDeleteCustomer()
+
+function useDeleteCustomer() {
+  return useMutation({
+    mutationFn: (id: number) => deleteCustomerQuery(id),
+    onMutate: async (id) => {
+      console.log('onMutate', id)
+      // Cancel current queries for the todos list
+      await queryClient.cancelQueries({ queryKey: ['customers'] })
+
+      queryClient.setQueryData<Entity[]>(['customers'], (old) => {
+          return old?.filter((entity) => entity.id !== id) ?? []
+        })
+
+      // Return context 
+      return { id }
+    },
+    onError: (error, variables, context) => {
+      console.log('onError', 'variables', variables)
+      console.log('onError', 'error', error)
+      console.log('onError', 'context', context)
+      // An error happened!
+      
+
+      queryClient.setQueryData<Entity[]>(['customers'], (old: any) => {
+        console.log('onError_inMap', old)
+          return (old?.length ?? 0) > 0
+            ? [...old, variables]
+            : [variables]
+        })
+      if (context) {
+        console.log(`rolling back optimistic update with id ${context.id}`)
+      }
+    },
+    onSuccess: (_, id, __) => {
+  message.success(`Deleted: ${id}`)
+
+    },
+    // onSettled: (data, error, variables, context) => {
+    //   console.log('onSettled', 'data', data)
+    //   console.log('onSettled', 'error', error)
+    //   console.log('onSettled', 'variables', variables)
+    //   console.log('onSettled', 'context', context)
+    //   // Error or success... doesn't matter!
+    // },
+  })
 }
 
-const store = useDirtyStore()
+// function handleOptimisticDelete(id: number) {
+//   queryClient.
+// }
 
 function changeHandler(input: string) {
   store.setDirtyState(true)
+}
+
+function onReset() {
+  console.log('onReset')
+  queryClient.invalidateQueries({ queryKey: ['customers', props.id] })
+  store.setDirtyState(false)
 }
 </script>
 
