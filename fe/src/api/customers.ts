@@ -1,15 +1,10 @@
-import { queryOptions, useMutation, useQuery, type UseQueryReturnType } from '@tanstack/vue-query'
+import { queryOptions, useQuery } from '@tanstack/vue-query'
 import axios from 'axios'
-import { toRef, type Ref,} from 'vue'
+import { type Ref,} from 'vue'
 export type Entity = {
     id: number
     name: string
     fields: Field[]
-    // firstName: string
-    // lastName: string
-    // note: string
-    // nation: {id: number, name: string}
-    // nationId: number
 }
 
 export type Field = {

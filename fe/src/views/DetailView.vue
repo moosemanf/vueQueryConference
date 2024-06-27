@@ -13,10 +13,10 @@
       :key="field.name"
       :value="field.value"
       :field="field"
-      :options="nations"
       :class="{ 'w-60': field.type === 'select' }"
       @blur="changeHandler"
-    />
+      />
+      <!-- :options="nations" -->
   </section>
 </template>
 
@@ -60,37 +60,20 @@ function changeHandler(field: Field) {
 }
 
 function handleChangeAndOptimisticallyUpdateFE(field: Field) {
-  const { queryKey } = customersOptions()
+  const { queryKey } = customersOptions(toRef(false))
+  console.log('DetailView_queryKey', queryKey)
   // get Masterlist
   const entities = queryClient.getQueryData(queryKey)
   const oldEntity = entities?.find((e) => String(e.id) === props.id)
 
   if (!entities || !oldEntity) return
 
-  // prepare for optimistic update
-  const fields = updateFieldList(data, field)
-  const firstName = findFieldValue(fields, 'firstName')
-  const lastName = findFieldValue(fields, 'lastName')
-
-  const newEntity = { ...oldEntity, firstName, lastName }
-  // const newEntity = { ...oldEntity, fields }
+  const newEntity = { ...oldEntity, [field.name]: field.value }
   dirtyStore.setDirtyState(true)
 
   const newEntities = entities.map((old) => {
     return String(old.id) === props.id ? newEntity : old
   }) as Entity[]
   queryClient.setQueryData(queryKey, newEntities)
-}
-
-function updateFieldList(data: Ref<Entity> | Ref<undefined>, field: Field) {
-  return (
-    data?.value?.fields?.map((oldField) => {
-      return oldField.name === field.name ? field : oldField
-    }) ?? []
-  )
-}
-
-function findFieldValue(fields: Field[], name: string) {
-  return fields.find((f) => f.name === name)?.value ?? ''
 }
 </script>

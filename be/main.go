@@ -157,6 +157,8 @@ func deleteCustomer(c *gin.Context) {
 	id := c.Param("id")
 	var customer Customer
 	fmt.Println("id delete", id)
+	time.Sleep(time.Second * 1)
+
 	if id == "7" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Some purposeful error..."})
 		return

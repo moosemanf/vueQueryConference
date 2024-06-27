@@ -9,11 +9,7 @@ async function getNations(isSelect: boolean, queryKey: string[]) {
     const { data } = await axios.get('/api/nations')
     return isSelect ? toSelect(data) as Selectable[] : data as Entity[]
 }
-async function getSelect(query?: string) {
-    console.log('query:', query)
-    const { data } = await axios.get(`/api/${query}`)
-    return toSelect(data)
-}
+
 export function useGetNations({ isSelectable = false }: { isSelectable: boolean }) {
     return useQuery(nationOptions(isSelectable))
 }
@@ -24,16 +20,23 @@ const toSelect = (entities: Pick<Entity, "id" | "name">[]) =>
 export function nationOptions(isSelectable: boolean) {
     return queryOptions({
         queryKey: ['nations'],
-        queryFn: ({ queryKey }) => getSelect(queryKey),
+        queryFn: ({ queryKey }) => getSelect(queryKey[0]),
         staleTime: 5 * 1000,
     })
 }
 
 export function selectOptions(query?: string) {
+    if (!query) return
     return queryOptions({
         queryKey: [query],
         queryFn: () => getSelect(query),
         staleTime: 5 * 1000,
         enabled: !!query
     })
+}
+
+async function getSelect(query?: string) {
+    console.log('query:', query)
+    const { data } = await axios.get(`/api/${query}`)
+    return toSelect(data)
 }

@@ -26,18 +26,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
+import { computed, h } from 'vue'
 import {
   NDataTable,
   NButton,
   useMessage,
-  type DataTableColumns,
 } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { useDirtyStore } from '@/stores/dirty'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import {
-  getCustomers,
   type Entity,
   useGetAllCustomers,
   deleteCustomerQuery,
@@ -51,7 +49,6 @@ const router = useRouter()
 const route = useRoute()
 const store = useDirtyStore()
 const queryClient = useQueryClient()
-// type Entity = { id: string }
 
 const createColumns = () => {
   return [
@@ -90,12 +87,6 @@ const { isError, data, error, isPending } = useGetAllCustomers(
   computed(() => !store.isDirty)
 )
 
-// const data: Song[] = [
-//   { id: 3, title: 'Wonderwall', length: '4:18' },
-//   { id: 4, title: "Don't Look Back in Anger", length: '4:48' },
-//   { id: 12, title: 'Champagne Supernova', length: '7:27' }
-// ]
-
 const message = useMessage()
 const columns = createColumns()
 
@@ -118,70 +109,54 @@ const rowName = (row: Entity): string => {
 }
 
 function clickedHandler(id: number) {
-  // message.warning('Yuhuu!!')
-
   router.push({ name: 'Detail', params: { id } })
 }
 
 function onDelete(id: number) {
   console.log('onDelete', id)
-  mutate(id)
+  const entityToDelete = data.value?.find((entity) => entity.id === id)
+  if (entityToDelete) mutate(entityToDelete)
   // handleOptimisticDelete(id)
 }
 const { mutate } = useDeleteCustomer()
 
 function useDeleteCustomer() {
   return useMutation({
-    mutationFn: (id: number) => deleteCustomerQuery(id),
-    onMutate: async (id) => {
-      console.log('onMutate', id)
+    mutationFn: (entity: Entity) => deleteCustomerQuery(entity.id),
+    onMutate: async (entityToDelete) => {
+      console.log('onMutate', entityToDelete.id)
       // Cancel current queries for the todos list
       await queryClient.cancelQueries({ queryKey: ['customers'] })
 
       queryClient.setQueryData<Entity[]>(['customers'], (old) => {
-          return old?.filter((entity) => entity.id !== id) ?? []
-        })
+        return old?.filter((entity) => entity.id !== entityToDelete.id) ?? []
+      })
 
-      // Return context 
-      return { id }
+      // Return context
+      // return { entityToDelete }
     },
-    onError: (error, variables, context) => {
-      console.log('onError', 'variables', variables)
+    onError: (error, entityNotDeleted, context) => {
+      console.log('onError', 'entityNotDeleted', entityNotDeleted)
       console.log('onError', 'error', error)
       console.log('onError', 'context', context)
       // An error happened!
+      message.error(`NOT deleted: ${entityNotDeleted.id} (${error.message})`)
       
-
-      queryClient.setQueryData<Entity[]>(['customers'], (old: any) => {
-        console.log('onError_inMap', old)
-          return (old?.length ?? 0) > 0
-            ? [...old, variables]
-            : [variables]
-        })
-      if (context) {
-        console.log(`rolling back optimistic update with id ${context.id}`)
-      }
+      queryClient.setQueryData<Entity[]>(['customers'], (old) => {
+        console.log('onError', 'old', old)
+        if (!old) return [entityNotDeleted]
+        return old.length > 0
+          ? [...old, entityNotDeleted].sort((a,b)=> a.id-b.id)
+          : [entityNotDeleted]
+      })
     },
     onSuccess: (_, id, __) => {
-  message.success(`Deleted: ${id}`)
-
+      message.success(`Deleted: ${id}`)
     },
     // onSettled: (data, error, variables, context) => {
-    //   console.log('onSettled', 'data', data)
-    //   console.log('onSettled', 'error', error)
-    //   console.log('onSettled', 'variables', variables)
-    //   console.log('onSettled', 'context', context)
     //   // Error or success... doesn't matter!
     // },
   })
-}
-
-// function handleOptimisticDelete(id: number) {
-//   queryClient.
-// }
-
-function changeHandler(input: string) {
-  store.setDirtyState(true)
 }
 
 function onReset() {
