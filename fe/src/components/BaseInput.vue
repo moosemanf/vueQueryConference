@@ -8,11 +8,9 @@
       :value="field.value"
       @blur="handleBlur"
     />
-    <n-select
+    <BaseSelect
       v-if="field.type === 'select'"
-      :value="field.value"
-      :options="options"
-      :loading="isLoading"
+      :field
       class="basis-1/2 grow"
       @update:value="handleSelect"
     />
@@ -21,11 +19,8 @@
 
 <script setup lang="ts">
 import type { Field } from '@/api/customers'
-import { defineProps, defineEmits, computed, ref } from 'vue'
-import { NInput, NSelect, useMessage, type DataTableColumns } from 'naive-ui'
-import { useQuery } from '@tanstack/vue-query'
-import { selectOptions } from '@/api/nations'
-import type { Selectable } from '@/api/customers'
+import { defineProps, defineEmits } from 'vue'
+import BaseSelect from '@/components/BaseSelect.vue'
 
 interface Props {
   field: Field
@@ -44,15 +39,12 @@ const labelMap = {
   nationId: 'Nation',
 } as const
 
-const { isLoading, data: options } = useQuery(selectOptions(props.field.query))
-
 const handleBlur = (event: FocusEvent) => {
   const value = (event.target as HTMLInputElement).value
   emit('blur', { ...props.field, value })
 }
 
-const handleSelect = (value: number) => {
-  console.log('select: ', value)
-  emit('blur', { ...props.field, value })
+const handleSelect = (field: Field) => {
+  emit('blur', field )
 }
 </script>

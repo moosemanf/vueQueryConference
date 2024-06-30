@@ -2,19 +2,18 @@
   <h1>Master with Details and Crud action</h1>
   <div class="space-x-4 mb-8">
     <n-button type="primary"> New </n-button>
-    <n-button :disabled="!store.isDirty"> Save </n-button>
-    <!-- <n-button type="error" :disabled="!id"> Delete </n-button> -->
+    <n-button :disabled="!store.isDirty" @click="onUpdate"> Save </n-button>
     <n-button type="error" ghost :disabled="!id" @click="onReset">
       Reset
     </n-button>
   </div>
 
   <div v-if="isPending">master is loading...</div>
-  <div v-if="isError">showing my errors: {{ error }}</div>
+  <div v-else-if="isError">showing my errors: {{ error }}</div>
 
   <div v-else class="flex gap-x-12">
     <n-data-table
-      class="w-[400px]"
+      class="w-[300px]"
       :columns="columns"
       :data="data"
       :bordered="true"
@@ -26,12 +25,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
-import {
-  NDataTable,
-  NButton,
-  useMessage,
-} from 'naive-ui'
+import { computed, h, toRef, type Ref } from 'vue'
+import { NDataTable, NButton, useMessage } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { useDirtyStore } from '@/stores/dirty'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
@@ -39,6 +34,8 @@ import {
   type Entity,
   useGetAllCustomers,
   deleteCustomerQuery,
+  updateCustomerQuery,
+  useGetCustomer,
 } from '@/api/customers'
 
 const props = defineProps<{
@@ -49,6 +46,125 @@ const router = useRouter()
 const route = useRoute()
 const store = useDirtyStore()
 const queryClient = useQueryClient()
+const message = useMessage()
+
+const { isError, data, error, isPending } = useGetAllCustomers(
+  computed(() => !store.isDirty)
+)
+
+function clickedHandler(id: number) {
+  router.push({ name: 'Detail', params: { id } })
+}
+
+/*********** delete */
+
+const { mutate: deleteEntity } = useDeleteCustomer()
+
+function onDelete(id: number) {
+  const entityToDelete = data.value?.find((entity) => entity.id === id)
+  if (!entityToDelete) {
+    message.error(`Could not find ${id}!`)
+    return
+  }
+
+  deleteEntity(entityToDelete)
+}
+
+function useDeleteCustomer() {
+  const queryKey = ['customers']
+  return useMutation({
+    mutationFn: (entity: Entity) =>
+      deleteCustomerQuery(entity.id),
+
+    onMutate: async (entityToDelete) => {
+      // Cancel current queries for the customers list
+      await queryClient.cancelQueries({ queryKey })
+
+      // Remove entity opportunistically from list
+      queryClient.setQueryData<Entity[]>(queryKey, (old) => {
+        return old?.filter((entity) => entity.id !== entityToDelete.id) ?? []
+      })
+    },
+
+    onError: (error, entityNotDeleted) => {
+      // An error happened!
+      message.error(
+        `NOT deleted: ${entityNotDeleted.firstName} (${nice(error)})`
+      )
+
+      // Add entity back to list
+      queryClient.setQueryData<Entity[]>(queryKey, (old) => {
+        if (!old || old.length === 0) return [entityNotDeleted]
+        return [...old, entityNotDeleted].sort((a, b) => a.id - b.id)
+      })
+    },
+
+    onSuccess: (_, entityDeleted) => {
+      message.success(`Deleted: ${entityDeleted.firstName}`)
+    },
+    // onSettled: (data, error, variables, context) => {
+    //   // Error or success... doesn't matter!
+    // },
+  })
+}
+
+/*********** update */
+
+const { mutate: update } = useUpdateCustomer()
+
+function onUpdate() {
+  const id = Number(props.id ?? route.params.id)
+  const entityToUpdate = data.value?.find((entity) => entity.id === id)
+  if (!entityToUpdate) {
+    message.error(`Could not find ${id}!`)
+    return
+  }
+
+  update(entityToUpdate)
+}
+
+function useUpdateCustomer() {
+  const queryKey = ['customers']
+  return useMutation({
+    mutationFn: (entity: Entity) => updateCustomerQuery(entity),
+
+    onMutate: async (entity: Entity) => {
+      // Cancel current queries for the customers list
+      // await queryClient.cancelQueries({ queryKey })
+      await queryClient.cancelQueries({ queryKey: [ ...queryKey, entity.id] })
+
+      // List was updated via field change already!
+    },
+
+    onError: (error, entityUpdated) => {
+      // An error happened!
+      message.error(`NOT updated: ${entityUpdated.id} (${nice(error)})`)
+      // Add entity back to list
+      store.setDirtyState(false)
+      queryClient.invalidateQueries({ queryKey })
+      queryClient.resetQueries({ queryKey: [ ...queryKey, String(entityUpdated.id)] })
+    },
+
+    onSuccess: (_, entityUpdated) => {
+      message.success(`Updated: ${entityUpdated.firstName}`)
+      store.setDirtyState(false)
+    },
+    // onSettled: (data, error, variables, context) => {
+    //   // Error or success... doesn't matter!
+    // },
+  })
+}
+
+function onReset() {
+  console.log('onReset')
+  queryClient.invalidateQueries({ queryKey: ['customers'] })
+  queryClient.resetQueries({ queryKey: [ 'customers', props.id]})
+  store.setDirtyState(false)
+}
+
+const nice = (error: any) => {
+  return error.response?.data?.error
+}
 
 const createColumns = () => {
   return [
@@ -82,12 +198,6 @@ const createColumns = () => {
     },
   ]
 }
-
-const { isError, data, error, isPending } = useGetAllCustomers(
-  computed(() => !store.isDirty)
-)
-
-const message = useMessage()
 const columns = createColumns()
 
 const rowProps = (item: Entity) => {
@@ -107,68 +217,11 @@ const rowName = (row: Entity): string => {
   const selected = id && String(row.id) === String(id) ? 'selected-row' : ''
   return selected
 }
-
-function clickedHandler(id: number) {
-  router.push({ name: 'Detail', params: { id } })
-}
-
-function onDelete(id: number) {
-  console.log('onDelete', id)
-  const entityToDelete = data.value?.find((entity) => entity.id === id)
-  if (entityToDelete) mutate(entityToDelete)
-  // handleOptimisticDelete(id)
-}
-const { mutate } = useDeleteCustomer()
-
-function useDeleteCustomer() {
-  return useMutation({
-    mutationFn: (entity: Entity) => deleteCustomerQuery(entity.id),
-    onMutate: async (entityToDelete) => {
-      console.log('onMutate', entityToDelete.id)
-      // Cancel current queries for the todos list
-      await queryClient.cancelQueries({ queryKey: ['customers'] })
-
-      queryClient.setQueryData<Entity[]>(['customers'], (old) => {
-        return old?.filter((entity) => entity.id !== entityToDelete.id) ?? []
-      })
-
-      // Return context
-      // return { entityToDelete }
-    },
-    onError: (error, entityNotDeleted, context) => {
-      console.log('onError', 'entityNotDeleted', entityNotDeleted)
-      console.log('onError', 'error', error)
-      console.log('onError', 'context', context)
-      // An error happened!
-      message.error(`NOT deleted: ${entityNotDeleted.id} (${error.message})`)
-      
-      queryClient.setQueryData<Entity[]>(['customers'], (old) => {
-        console.log('onError', 'old', old)
-        if (!old) return [entityNotDeleted]
-        return old.length > 0
-          ? [...old, entityNotDeleted].sort((a,b)=> a.id-b.id)
-          : [entityNotDeleted]
-      })
-    },
-    onSuccess: (_, id, __) => {
-      message.success(`Deleted: ${id}`)
-    },
-    // onSettled: (data, error, variables, context) => {
-    //   // Error or success... doesn't matter!
-    // },
-  })
-}
-
-function onReset() {
-  console.log('onReset')
-  queryClient.invalidateQueries({ queryKey: ['customers', props.id] })
-  store.setDirtyState(false)
-}
 </script>
 
 <style>
-.selected-row {
+.selected-row td {
   @apply !bg-red-300;
-  background-color: blue !important;
+  background-color: skyblue !important;
 }
 </style>

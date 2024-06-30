@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -95,10 +96,10 @@ func main() {
 
 	// Start server
 	r.Run(":3000")
-	// Wait for kill signal of channel
-	quit := make(chan os.Signal)
+	// Wait for kill signal of channels
+	quit := make(chan os.Signal, 1)
 
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGABRT)
 
 	// This blocks until a signal is passed into the quit channel
 	<-quit
@@ -149,6 +150,11 @@ func updateCustomer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	idNumber, _ := strconv.Atoi(id)
+	if idNumber%2 == 1 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Some purposeful error..."})
+		return
+	}
 	db.Save(&customer)
 	c.JSON(http.StatusOK, customer)
 }
@@ -159,7 +165,8 @@ func deleteCustomer(c *gin.Context) {
 	fmt.Println("id delete", id)
 	time.Sleep(time.Second * 1)
 
-	if id == "7" {
+	idNumber, _ := strconv.Atoi(id)
+	if idNumber%2 == 1 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Some purposeful error..."})
 		return
 	}
@@ -258,7 +265,7 @@ func seedData(db *gorm.DB) {
 
 	// Seed customers
 	rand.Seed(time.Now().Unix())
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		firstName := customerFirstNames[rand.Intn(len(customerFirstNames))]
 		lastName := customerLastNames[rand.Intn(len(customerLastNames))]
 		idNation := rand.Intn(len(nationNames))

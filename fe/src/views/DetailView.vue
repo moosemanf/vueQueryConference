@@ -9,35 +9,28 @@
       </span>
     </label>
     <BaseInput
-      v-for="field in data?.fields"
+      v-for="field in data?.fields ?? []"
       :key="field.name"
-      :value="field.value"
-      :field="field"
-      :class="{ 'w-60': field.type === 'select' }"
+      :field
       @blur="changeHandler"
       />
-      <!-- :options="nations" -->
+      <!-- :class="{ 'w-60': field.type === 'select' }" -->
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, h, toRef, type Ref } from 'vue'
-import { NInput, NSelect, useMessage, type DataTableColumns } from 'naive-ui'
-import { useRoute } from 'vue-router'
+import { computed, toRef } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
+import { useDirtyStore } from '@/stores/dirty'
 import {
   useGetCustomer,
   type Entity,
   type Field,
-  type Selectable,
   customersOptions,
-  deleteCustomerQuery,
 } from '@/api/customers'
-import { useGetNations, nationOptions } from '@/api/nations'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import BaseInput from '@/components/BaseInput.vue'
-import { useDirtyStore } from '@/stores/dirty'
 
-const route = useRoute()
 const dirtyStore = useDirtyStore()
 const queryClient = useQueryClient()
 
@@ -48,12 +41,9 @@ const props = defineProps<{
 // const queryKey = computed(() => ['customer', props.id])
 const { isLoading, data, isError, error } = useGetCustomer(
   toRef(props, 'id'),
-  computed(() => !dirtyStore.isDirty)
+  computed(() => !dirtyStore?.isDirty)
 )
 
-const { isLoading: isLoadingNations, data: nations } = useGetNations({
-  isSelectable: true,
-})
 
 function changeHandler(field: Field) {
   handleChangeAndOptimisticallyUpdateFE(field)
@@ -61,7 +51,6 @@ function changeHandler(field: Field) {
 
 function handleChangeAndOptimisticallyUpdateFE(field: Field) {
   const { queryKey } = customersOptions(toRef(false))
-  console.log('DetailView_queryKey', queryKey)
   // get Masterlist
   const entities = queryClient.getQueryData(queryKey)
   const oldEntity = entities?.find((e) => String(e.id) === props.id)
@@ -71,9 +60,26 @@ function handleChangeAndOptimisticallyUpdateFE(field: Field) {
   const newEntity = { ...oldEntity, [field.name]: field.value }
   dirtyStore.setDirtyState(true)
 
-  const newEntities = entities.map((old) => {
+  const newEntities = entities.map<Entity>((old) => {
     return String(old.id) === props.id ? newEntity : old
-  }) as Entity[]
+  })
   queryClient.setQueryData(queryKey, newEntities)
+}
+
+onBeforeRouteLeave(() => routeGuard())
+
+onBeforeRouteUpdate(() => routeGuard())
+
+function routeGuard() {
+  if (dirtyStore.isDirty) {
+    const answer = window.confirm(
+      'You have unsaved changed, do you really want to leave?'
+    )
+    // cancel the navigation and stay on the same page
+    if (!answer) return false
+    dirtyStore.setDirtyState(false)
+    queryClient.resetQueries({ queryKey: [ 'customers', props.id], exact: true })
+    queryClient.invalidateQueries({ queryKey: [ 'customers'], exact: true })
+  }
 }
 </script>

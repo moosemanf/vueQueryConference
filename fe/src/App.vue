@@ -2,6 +2,7 @@
 import { RouterLink, RouterView } from 'vue-router'
 import { NMessageProvider } from 'naive-ui'
 import { VueQueryDevtools } from '@tanstack/vue-query-devtools'
+import Sidebar from './SideBar.vue'
 </script>
 
 <template>
@@ -19,9 +20,12 @@ import { VueQueryDevtools } from '@tanstack/vue-query-devtools'
       </nav>
     </div>
   </header>
-  <main class="my-12 mx-20">
-    <n-message-provider>
-      <RouterView />
-    </n-message-provider>
-  </main>
+  <div class="flex">
+    <Sidebar />
+    <main class="my-12 mx-20">
+      <n-message-provider>
+        <RouterView />
+      </n-message-provider>
+    </main>
+  </div>
 </template>
